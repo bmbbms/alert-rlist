@@ -3,6 +3,7 @@ module github.com/bmbbms/alert-rlist
 go 1.20
 
 require (
+	github.com/Netflix/go-env v0.0.0-20220526054621-78278af1949d
 	github.com/gin-gonic/gin v1.9.1
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
 )

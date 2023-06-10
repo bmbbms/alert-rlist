@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-rlist
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      name: alert-rlist
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: alert-rlist
+    spec:
+      containers:
+        - name: alert-rlist
+          image: jialiannexus.xgd.com:8084/k8s-addon/alert-rlist:v1.0.0
+          ports:
+            - name: http
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /alert
+            initialDelaySeconds: 40
+            periodSeconds: 50
+            failureThreshold: 3
+            successThreshold: 1
+            timeoutSeconds: 10
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-rlist-svc
+  namespace: monitoring
+  labels:
+    name: alert-rlist
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      name: http
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    name: alert-rlist
