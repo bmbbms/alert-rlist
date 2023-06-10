@@ -31,11 +31,11 @@ func main() {
 }
 
 func showVersion() {
-	if config.ShowVer {
-		fmt.Printf("build name:\t%s\n", config.BuildName)
-		fmt.Printf("build ver:\t%s\n", config.BuildVersion)
-		fmt.Printf("build time:\t%s\n", config.BuildTime)
-		fmt.Printf("Commit ID:\t%s\n", config.CommitID)
+	if ShowVer {
+		fmt.Printf("build name:\t%s\n", BuildName)
+		fmt.Printf("build ver:\t%s\n", BuildVersion)
+		fmt.Printf("build time:\t%s\n", BuildTime)
+		fmt.Printf("Commit ID:\t%s\n", CommitID)
 		os.Exit(0)
 	}
 }
