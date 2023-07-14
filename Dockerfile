@@ -14,7 +14,7 @@ RUN set -eux; \
         apk add --no-cache make;\
          ls -la \
         ; make \
-        ;./alert-rlist --version
+        ; ./alert-rlist --version
 
 
 
@@ -26,11 +26,12 @@ RUN     set -eux ;\
         sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories;\
         apk update;\
         apk upgrade; \
-        apk add --no-cache tini \
+        apk add --no-cache tini tzdata\
         \
         ; chmod +x /usr/bin/alert-rlist \
         ; /usr/bin/alert-rlist --version
 
 
+ENV TZ=Asia/Shanghai
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD /usr/bin/alert-rlist

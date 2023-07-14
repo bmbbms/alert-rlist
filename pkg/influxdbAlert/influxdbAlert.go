@@ -110,10 +110,11 @@ func sendWxAlert(s string, throld, value int64, now time.Time) {
 		Throld:     throld,
 		Value:      value,
 		Time:       now,
-		ExtUrl: "http://172.20.20.40:3030/d/Ed_MWpl4k/dai-fu-cuo-wu-xiang-qing?" +
-			"orgId=1&from=now-5m&to=now&var-idc=.*&var-ch_rottype=.*&var-status=.*&var-retcode=All",
+		ExtUrl: "http://kx-monitor.jlpay.com/d/Ed_MWpl4k/dai-fu-cuo-wu-xiang-qing"+
+                        "?orgId=1&var-idc=.*&var-ch_rottype=.*&var-status=1&var-retcode=00",
 	}
-	notify := alert.NewWxNotify("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=e845e359-dda5-4731-811e-b1d09a0d8c8f")
+	//notify := alert.NewWxNotify("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=e845e359-dda5-4731-811e-b1d09a0d8c8f")
+	notify := alert.NewWxNotify("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=0bd7e1aa-627f-4d6f-b6dd-afb1f988f841")
 	notify.Send(alertMsg)
 
 }
