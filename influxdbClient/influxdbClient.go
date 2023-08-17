@@ -43,11 +43,11 @@ func NewClient(c *influxdb.HTTPConfig) (influxdb.Client, error) {
 	return client, nil
 }
 
-func BuildConfig(uri *url.URL) (*influxdb.HTTPConfig, error) {
+func BuildConfig(uri *url.URL, username string, password string) (*influxdb.HTTPConfig, error) {
 	config := influxdb.HTTPConfig{
 		Addr:               uri.Scheme + "://" + uri.Host,
-		Username:           "admin",
-		Password:           "admin#20220818",
+		Username:           username,
+		Password:           password,
 		UserAgent:          "InfluxDBClient",
 		Timeout:            5 * time.Second,
 		InsecureSkipVerify: true,

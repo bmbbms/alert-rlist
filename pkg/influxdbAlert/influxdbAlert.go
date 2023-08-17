@@ -10,35 +10,104 @@ import (
 	influxdb "github.com/influxdata/influxdb1-client/v2"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
+func InsertInfo(context *gin.Context) {
+	InsertInfos()
+	context.JSON(http.StatusOK, gin.H{
+		"msg": "ok",
+	})
+
+}
+
+func InsertInfos() {
+
+}
 func GetAlertInfo(context *gin.Context) {
-	getA06Info()
+	err := getA06Info()
+
+	err = getRlistErrInfo()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	context.JSON(http.StatusOK, gin.H{
 		"msg": "ok",
 	})
 }
 
-func getA06Info() error {
-	url := &url.URL{
+func getRlistErrInfo() error {
+	client := connInfluxdb()
+	defer func(client influxdb.Client) {
+		err := client.Close()
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	}(client)
+
+	query := influxdb.Query{
+		//Command: "SELECT count(chn_retcode) as A6_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
+		//	"     (\"chn_retcode\" = 'A6' or  \"chn_retcode\" = '00A6' ) AND time>now() -1m group by time(1m) fill(0);",
+		Command: "SELECT count(chn_retcode) as err_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
+			"     (\"status\" = '2') AND time>now() -1m;",
+		Database: "monitor",
+	}
+	response, err := client.Query(query)
+	if err != nil {
+		fmt.Println("Error Query data:", err.Error())
+		return err
+	}
+	if response.Error() != nil {
+		fmt.Println("Error parsing data:", response.Error().Error())
+		return err
+	}
+	series := response.Results[0].Series
+	if len(series) == 0 {
+		return nil
+	}
+	row := series[0].Values[0]
+	value, _ := row[1].(json.Number).Int64()
+	fmt.Printf("过去一分钟代付错误数: %d", value)
+	if value > 50 {
+		sendAlert(time.Now(), client, value, 2, "代付失败订单数告警", 50)
+	}
+
+	return err
+
+}
+func connInfluxdb() influxdb.Client {
+	influxdbUrl := &url.URL{
 		Scheme: "https",
 		Host:   "ts-wz95nqj644jxdfyl1.influxdata.rds.aliyuncs.com:3242",
 	}
-	config, err := influxdbClient.BuildConfig(url)
+
+	config, err := influxdbClient.BuildConfig(influxdbUrl, "admin", "admin#20220818")
 	client, err := influxdbClient.NewClient(config)
-	defer client.Close()
 	if err != nil {
-		return err
+		panic("获取client异常" + err.Error())
 	}
 
 	if client == nil {
 		panic("获取client失败")
 	}
+	return client
+
+}
+func getA06Info() error {
+	client := connInfluxdb()
+	defer func(client influxdb.Client) {
+		err := client.Close()
+		if err != nil {
+			fmt.Println("close failed")
+		}
+	}(client)
 
 	query := influxdb.Query{
+		//Command: "SELECT count(chn_retcode) as A6_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
+		//	"     (\"chn_retcode\" = 'A6' or  \"chn_retcode\" = '00A6' ) AND time>now() -1m group by time(1m) fill(0);",
 		Command: "SELECT count(chn_retcode) as A6_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
-			"     (\"chn_retcode\" = 'A6' or  \"chn_retcode\" = '00A6' ) AND time>now() -1m group by time(1m) fill(0);",
+			"     (\"chn_retcode\" = 'A6' or  \"chn_retcode\" = '00A6' ) AND time>now() -1m;",
 		Database: "monitor",
 	}
 	response, err := client.Query(query)
@@ -59,7 +128,7 @@ func getA06Info() error {
 			for _, row := range series.Values {
 				value, _ := row[1].(json.Number).Int64()
 				if value > 10 {
-					sendAlert(time.Now(), client, value)
+					sendAlert(time.Now(), client, value, 1, "代付A6状态码告警", 10)
 				}
 			}
 		}
@@ -69,10 +138,10 @@ func getA06Info() error {
 	return nil
 }
 
-func sendAlert(now time.Time, client influxdb.Client, value int64) {
+func sendAlert(now time.Time, client influxdb.Client, value int64, alert_type int, alertTitle string, threshold int64) {
 	query := influxdb.Query{
 		Command: "SELECT count(begin_time)  FROM \"monitor_alert_history\" WHERE " +
-			"(\"status\" = '1' ) AND time>now() -10m;",
+			"(\"status\" = '1' ) AND \"alert_type\" ='" + strconv.Itoa(alert_type) + "' AND " + "time>now() -10m;",
 		Database: "monitor",
 	}
 	response, err := client.Query(query)
@@ -84,22 +153,23 @@ func sendAlert(now time.Time, client influxdb.Client, value int64) {
 		fmt.Println("Error parsing data:", response.Error().Error())
 		return
 	}
-	for _, result := range response.Results {
-		if len(result.Series) == 0 {
+	series := response.Results[0].Series
+	if len(series) == 0 {
+		sendWxAlert(alertTitle, threshold, value, now)
+		point, _ := influxdb.NewPoint("monitor_alert_history", map[string]string{"alert_type": strconv.Itoa(alert_type), "status": "1"},
+			map[string]interface{}{"begin_time": time.Now()})
 
-			sendWxAlert("代付A6状态码告警", 10, value, now)
-			point, _ := influxdb.NewPoint("monitor_alert_history", map[string]string{"alert_type": "1", "status": "1"},
-				map[string]interface{}{"begin_time": time.Now()})
-
-			batchPoints, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-				Precision: "s",
-				Database:  "monitor",
-			})
-			batchPoints.AddPoint(point)
-			client.Write(batchPoints)
-
+		batchPoints, _ := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+			Precision: "s",
+			Database:  "monitor",
+		})
+		batchPoints.AddPoint(point)
+		err := client.Write(batchPoints)
+		if err != nil {
+			fmt.Println("write error", err.Error())
 		}
-
+	} else {
+		fmt.Printf("\n静默状态-持续报警中:%s,阈值%d,当前值%d,告警时间%v", alertTitle, threshold, value, now)
 	}
 
 }
@@ -110,9 +180,10 @@ func sendWxAlert(s string, throld, value int64, now time.Time) {
 		Throld:     throld,
 		Value:      value,
 		Time:       now,
-		ExtUrl: "http://kx-monitor.jlpay.com/d/Ed_MWpl4k/dai-fu-cuo-wu-xiang-qing"+
-                        "?orgId=1&var-idc=.*&var-ch_rottype=.*&var-status=1&var-retcode=00",
+		ExtUrl: "http://kx-monitor.jlpay.com/d/Ed_MWpl4k/dai-fu-cuo-wu-xiang-qing?" +
+			"orgId=1&from=now-5m&to=now&var-idc=.*&var-ch_rottype=.*&var-status=.*&var-retcode=All",
 	}
+	//测试机器人
 	//notify := alert.NewWxNotify("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=e845e359-dda5-4731-811e-b1d09a0d8c8f")
 	notify := alert.NewWxNotify("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=0bd7e1aa-627f-4d6f-b6dd-afb1f988f841")
 	notify.Send(alertMsg)
