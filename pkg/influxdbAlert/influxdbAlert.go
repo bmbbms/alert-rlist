@@ -49,7 +49,7 @@ func getRlistErrInfo() error {
 	query := influxdb.Query{
 		//Command: "SELECT count(chn_retcode) as A6_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
 		//	"     (\"chn_retcode\" = 'A6' or  \"chn_retcode\" = '00A6' ) AND time>now() -1m group by time(1m) fill(0);",
-		Command: "SELECT count(chn_retcode) as err_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
+		Command: "SELECT count(status) as err_cnt FROM \"monitor_trans_rlist_exception_details\" WHERE " +
 			"     (\"status\" = '2') AND time>now() -1m;",
 		Database: "monitor",
 	}
@@ -180,7 +180,7 @@ func sendWxAlert(s string, throld, value int64, now time.Time) {
 		Throld:     throld,
 		Value:      value,
 		Time:       now,
-		ExtUrl: "http://kx-monitor.jlpay.com/d/Ed_MWpl4k/dai-fu-cuo-wu-xiang-qing?" +
+		ExtUrl: "https://kx-monitor.jlpay.com/d/Ed_MWpl4k/5Luj5LuY6ZSZ6K-v6K-m5oOF?" +
 			"orgId=1&from=now-5m&to=now&var-idc=.*&var-ch_rottype=.*&var-status=.*&var-retcode=All",
 	}
 	//测试机器人
